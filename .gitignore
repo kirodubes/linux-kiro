@@ -3,3 +3,6 @@ src
 *.tar.gz
 *.pkg.tar.zst
 cachy*
+.claude
+.codex
+kernels
