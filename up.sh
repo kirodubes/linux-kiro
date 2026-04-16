@@ -32,8 +32,7 @@ workdir=$(pwd)
 # Git workflow
 
 sudo rm -rf pkg src
-rm cachy*.tar.gz
-rm cachy*
+rm -f cachy*
 
 git add --all .
 git commit -m "update"
