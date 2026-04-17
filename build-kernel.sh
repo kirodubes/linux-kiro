@@ -139,6 +139,49 @@ ask_build() {
   fi
 }
 
+check_modprobed_db() {
+  local modprobed_db="$HOME/.config/modprobed.db"
+
+  echo -e "\n${BLUE}Kernel Module Optimization:${NC}"
+  echo -e "Compile only modules needed for YOUR hardware?\n"
+  echo -e "  This uses modprobed-db tracking to reduce:"
+  echo -e "  • Build time by 30-50%"
+  echo -e "  • Kernel size"
+  echo -e "  • Boot time\n"
+
+  read -p "Enable local module config? (Y/n) " -r
+  echo
+
+  if [[ -z $REPLY || $REPLY =~ ^[Yy]$ ]]; then
+    if [[ ! -f "$modprobed_db" ]]; then
+      echo -e "${RED}✗ Error: modprobed.db not found at $modprobed_db${NC}\n"
+      echo -e "${YELLOW}Why we're stopping:${NC}"
+      echo -e "  • Local module config requires a module database"
+      echo -e "  • modprobed-db tracks which kernel modules YOUR hardware uses"
+      echo -e "  • Without it, we can't know which modules to compile\n"
+      echo -e "${BLUE}To set this up:${NC}"
+      echo -e "  1. Install modprobed-db from AUR:"
+      echo -e "     ${YELLOW}yay -S modprobed-db${NC}"
+      echo -e "  2. Run the profiler (takes a few hours to days of normal use):"
+      echo -e "     ${YELLOW}sudo modprobed-db${NC}"
+      echo -e "  3. Once you have enough data (~100+ modules), run:"
+      echo -e "     ${YELLOW}modprobed-db ${NC}"
+      echo -e "  4. The database will be at: ~/.config/modprobed.db\n"
+      echo -e "${GREEN}Then you can re-run this script and enable local module config.${NC}\n"
+      return 1
+    else
+      local module_count=$(wc -l < "$modprobed_db")
+      sed -i 's/: "${_localmodcfg:=no}"/: "${_localmodcfg:=yes}"/g' "$PKGBUILD"
+      echo -e "${GREEN}✓${NC} Local module config enabled (${module_count} modules tracked)"
+      return 0
+    fi
+  else
+    echo -e "${GREEN}✓${NC} Local module config disabled - will compile all modules"
+    sed -i 's/: "${_localmodcfg:=yes}"/: "${_localmodcfg:=no}"/g' "$PKGBUILD"
+    return 0
+  fi
+}
+
 ask_interactive_config() {
   echo -e "\n${BLUE}Additional Options:${NC}\n"
   read -p "Do you want to run 'nconfig' for manual kernel configuration? (y/N) " -r
@@ -153,10 +196,13 @@ ask_interactive_config() {
 }
 
 start_build() {
+  echo -e "\n${BLUE}Updating package checksums...${NC}"
+  cd "$SCRIPT_DIR"
+  updpkgsums
+
   echo -e "\n${BLUE}Starting kernel build...${NC}"
   echo -e "${YELLOW}⏱ This will take 30-60 minutes${NC}\n"
 
-  cd "$SCRIPT_DIR"
   makepkg -si --skippgpcheck
 }
 
@@ -219,6 +265,9 @@ main() {
       exit 1
       ;;
   esac
+
+  # Check for modprobed.db and ask about local module config
+  check_modprobed_db
 
   # Ask about interactive config
   ask_interactive_config
