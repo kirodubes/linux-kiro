@@ -17,18 +17,75 @@ A custom Arch Linux kernel optimized for gaming and desktop use, forked from `li
 sudo pacman -S base-devel
 ```
 
-### Quick Build
+### Quick Build with build-kernel.sh
+
+The easiest way to build is using the interactive build script:
+
+```bash
+cd /home/erik/KIRO/linux-kiro
+./build-kernel.sh
+```
+
+This will:
+1. **Prompt for kernel profile** (Gaming or Desktop)
+2. **Check for modprobed.db** and offer hardware-specific module optimization
+3. **Update package checksums** before building
+4. **Optionally run nconfig** for manual configuration
+5. **Build and install** the kernel
+
+The build will take 15-60 minutes depending on:
+- Your CPU speed
+- Disk I/O performance
+- Whether you enable local module config (can save 30-50% build time)
+
+### Manual Build
 
 ```bash
 cd /home/erik/KIRO/linux-kiro
 makepkg -si --skippgpcheck
 ```
 
-The build will take 30-60 minutes depending on your CPU and disk speed.
+### Kernel Profiles
 
-### Build Options
+The `build-kernel.sh` script provides two preset configurations:
 
-Edit the top of `PKGBUILD` to customize:
+**Gaming Kernel** (optimized for responsiveness & FPS)
+
+- BORE scheduler (burst responsiveness)
+- 1000Hz tick rate (low latency)
+- Full preemption
+- Transparent Huge Pages (always enabled)
+
+**Desktop Kernel** (optimized for productivity & power efficiency)
+
+- EEVDF scheduler (fair scheduling)
+- 500Hz tick rate (power efficient)
+- Lazy preemption (balanced)
+- Transparent Huge Pages (madvise)
+
+### Hardware Module Optimization
+
+To significantly reduce build time (30-50% faster), use `modprobed-db` to track which kernel modules your hardware actually needs:
+
+```bash
+# Install modprobed-db
+yay -S modprobed-db
+
+# Start tracking modules used by your hardware
+sudo modprobed-db
+
+# After a few hours/days of normal use, generate the database
+modprobed-db
+
+# Next time you run build-kernel.sh, it will ask to enable local module config
+./build-kernel.sh
+```
+
+With local module config enabled, only your hardware's modules are compiled. The script will automatically detect and use `~/.config/modprobed.db` if it exists.
+
+### Advanced Build Options
+
+For more control, edit the top of `PKGBUILD`:
 
 ```bash
 # CPU scheduler (default: bore)
@@ -43,8 +100,8 @@ _HZ_ticks=1000            # 100, 250, 300, 500, 600, 750, 1000
 # Preemption (default: full)
 _preempt=full             # full, lazy, dynamic
 
-# CPU optimization (default: native detection)
-_processor_opt=            # native, zen4, generic, generic_v1-v4
+# CPU optimization (default: generic_v3)
+_processor_opt=generic_v3  # native, zen4, generic, generic_v1-v4
 
 # LTO mode (default: none = GCC)
 _use_llvm_lto=none        # none, thin, full
@@ -56,7 +113,20 @@ _build_debug=no           # yes/no
 _build_zfs=no             # yes/no
 _build_nvidia_open=no     # yes/no (for NVIDIA Turing+ GPUs)
 _build_r8125=no           # yes/no (for r8125 network adapter)
+
+# Use local module config (auto-detected by build-kernel.sh)
+_localmodcfg=no           # yes/no
 ```
+
+### Build Script Features
+
+The `build-kernel.sh` script handles the complete build workflow:
+
+1. **Profile Selection** - Choose between Gaming or Desktop kernel
+2. **Module Optimization** - Detects `modprobed.db` and enables hardware-specific modules
+3. **Checksum Update** - Automatically runs `updpkgsums` before building
+4. **Manual Configuration** - Optional `nconfig` for advanced kernel options
+5. **Build & Install** - Compiles and installs the kernel in one step
 
 ### Custom Builds
 
@@ -64,12 +134,15 @@ To customize the kernel configuration before building:
 
 ```bash
 cd /home/erik/KIRO/linux-kiro
-# Edit PKGBUILD and set:
-_makenconfig=yes          # Opens kernel config tool (nconfig)
-# OR
-_makexconfig=yes          # Opens kernel config tool (xconfig) - needs X11
 
-# Then build as usual
+# Option 1: Use build script with manual config
+./build-kernel.sh
+# When prompted, select yes for nconfig
+
+# Option 2: Edit PKGBUILD directly
+# Set _makenconfig=yes to open nconfig during build
+# OR _makexconfig=yes to open xconfig (requires X11)
+nano PKGBUILD
 makepkg -si --skippgpcheck
 ```
 

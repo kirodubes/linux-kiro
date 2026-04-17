@@ -14,6 +14,8 @@ The `build-kernel.sh` script provides an easy way to switch between gaming and d
 ✅ **Automated configuration** - Modifies only the necessary PKGBUILD parameters  
 ✅ **Backup creation** - Automatically backs up PKGBUILD before making changes  
 ✅ **Change summary** - Shows exactly what was modified  
+✅ **Hardware module optimization** - Detects `modprobed.db` and enables local module config  
+✅ **Checksum updates** - Automatically runs `updpkgsums` before building  
 ✅ **Optional build** - Asks if you want to build immediately after configuration  
 ✅ **Interactive config option** - Option to run `nconfig` for manual kernel tweaking  
 
@@ -42,6 +44,55 @@ Recommended for productivity work - better for sustained workloads:
 | Tick Rate | 500Hz |
 | Preemption | Lazy |
 | Transparent Hugepages | Madvise |
+
+## Hardware Module Optimization
+
+The script can optimize the build by compiling **only** the kernel modules your hardware needs, significantly reducing build time.
+
+### How It Works
+
+1. The script checks for `~/.config/modprobed.db` (created by `modprobed-db` tool)
+2. If found, it asks if you want to enable local module config
+3. Only modules in the database are compiled (instead of hundreds of unused ones)
+4. **Result: 30-50% faster builds + smaller kernel**
+
+### Setup modprobed-db
+
+```bash
+# Install from AUR
+yay -S modprobed-db
+
+# Start tracking kernel modules used by your hardware
+sudo modprobed-db
+
+# After a few hours/days of normal use, generate the database
+modprobed-db
+
+# Next time you run build-kernel.sh, it will detect the database
+```
+
+### What You'll See
+
+```
+Kernel Module Optimization:
+Compile only modules needed for YOUR hardware?
+
+  This uses modprobed-db tracking to reduce:
+  • Build time by 30-50%
+  • Kernel size
+  • Boot time
+
+Enable local module config? (Y/n) Y
+
+✓ Local module config enabled (142 modules tracked)
+```
+
+## Automatic Checksum Updates
+
+Before each build, the script automatically runs `updpkgsums` to ensure:
+- Latest kernel source checksums are fetched
+- New versions are detected and updated
+- Build won't fail due to stale checksums
 
 ## Usage Examples
 
