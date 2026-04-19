@@ -195,12 +195,48 @@ ask_interactive_config() {
   fi
 }
 
+clean_build_artifacts() {
+  echo -e "\n${BLUE}Cleaning build artifacts...${NC}"
+
+  # Remove src and pkg directories for clean build
+  if [[ -d "$SCRIPT_DIR/src" ]]; then
+    echo -e "${YELLOW}Removing src/ directory...${NC}"
+    rm -rf "$SCRIPT_DIR/src"
+  fi
+
+  if [[ -d "$SCRIPT_DIR/pkg" ]]; then
+    echo -e "${YELLOW}Removing pkg/ directory...${NC}"
+    rm -rf "$SCRIPT_DIR/pkg"
+  fi
+
+  # Ask about removing .tar.zst files
+  local tar_files=("$SCRIPT_DIR"/*.tar.zst)
+  if [[ -e "${tar_files[0]}" ]]; then
+    echo -e "\n${YELLOW}Found compiled package files:${NC}"
+    ls -lh "$SCRIPT_DIR"/*.tar.zst 2>/dev/null | awk '{print "  " $9 " (" $5 ")"}'
+
+    read -p "Remove package .tar.zst files? (Y/n) " -r
+    echo
+    if [[ -z $REPLY || $REPLY =~ ^[Yy]$ ]]; then
+      rm -f "$SCRIPT_DIR"/*.tar.zst
+      echo -e "${GREEN}✓${NC} Package files removed"
+    else
+      echo -e "${YELLOW}⚠${NC} Package files kept"
+    fi
+  fi
+
+  echo -e "${GREEN}✓${NC} Build directory cleaned\n"
+}
+
 start_build() {
   echo -e "\n${BLUE}Updating package checksums...${NC}"
   cd "$SCRIPT_DIR"
   updpkgsums
 
-  echo -e "\n${BLUE}Starting kernel build...${NC}"
+  # Clean build artifacts for fresh start
+  clean_build_artifacts
+
+  echo -e "${BLUE}Starting kernel build...${NC}"
   echo -e "${YELLOW}⏱ This will take 30-60 minutes${NC}\n"
 
   makepkg -si --skippgpcheck
