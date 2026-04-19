@@ -1,6 +1,6 @@
 # linux-kiro
 
-A custom Arch Linux kernel optimized for gaming and desktop use, forked from `linux-cachyos-bore`.
+A custom Arch Linux kernel optimized for gaming and desktop use, forked from [CachyOS linux-cachyos-bore](https://github.com/CachyOS/linux-cachyos/blob/master/linux-cachyos-bore/PKGBUILD).
 
 ## Features
 
