@@ -1,6 +1,6 @@
-# Maintainer: Erik Dubois <erik.dubois@gmail.com>
-# Based on: Peter Jung ptr1337 <admin@ptr1337.dev>
-# Based on: Piotr Gorski <piotrgorski@cachyos.org>
+# Maintainer: Peter Jung ptr1337 <admin@ptr1337.dev>
+# Maintainer: Piotr Gorski <piotrgorski@cachyos.org>
+# Maintainer: Vasiliy Stelmachenok <ventureo@cachyos.org>
 # Contributor: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
 # Contributor: Tobias Powalowski <tpowa@archlinux.org>
 # Contributor: Thomas Baechler <thomas@archlinux.org>
@@ -20,7 +20,7 @@
 # 'eevdf' - select 'EEVDF Scheduler'
 # 'rt' - select EEVDF, but includes a series of realtime patches
 # 'rt-bore' - select Burst-Oriented Response Enhancer, but includes a series of realtime patches
-: "${_cpusched:=bore}"
+: "${_cpusched:=cachyos}"
 
 ### Tweak kernel options prior to a build via nconfig
 : "${_makenconfig:=no}"
@@ -85,8 +85,7 @@
 # - "native" (use compiler autodetection)
 # - "zen4" (Use znver4 compiler optimizations)
 # - "generic" (kernel's default - to share the package between machines with different CPU µarch as long as they are x86-64)
-# - "generic_v3" (optimized for Intel 10th gen+ / AMD Zen2+, recommended for i7-10700K)
-: "${_processor_opt:=generic_v3}"
+: "${_processor_opt:=}"
 
 # Clang LTO mode, only available with the "llvm" compiler - options are "none", "full" or "thin".
 # ATTENTION - one of three predefined values should be selected!
@@ -94,18 +93,17 @@
 # "thin: uses multiple threads, faster and uses less memory, may have a lower runtime performance than Full."
 # "thin-dist: Similar to thin, but uses a distributed model rather than in-process: https://discourse.llvm.org/t/rfc-distributed-thinlto-build-for-kernel/85934"
 # "none: disable LTO
-: "${_use_llvm_lto:=none}"
+: "${_use_llvm_lto:=thin}"
 
 # Use suffix -lto only when requested by the user
-# Enabled by default.
 # yes - enable -lto suffix
 # no - disable -lto suffix
 # https://github.com/CachyOS/linux-cachyos/issues/36
-: "${_use_lto_suffix:=yes}"
+: "${_use_lto_suffix:=no}"
 
 # Use suffix -gcc when requested by the user
-# This was added to facilitate https://github.com/CachyOS/linux-cachyos/issues/286
-: "${_use_gcc_suffix:=no}"
+# Enabled by default to show the difference between LTO kernels and GCC kernels
+: "${_use_gcc_suffix:=yes}"
 
 # KCFI is a proposed forward-edge control-flow integrity scheme for
 # Clang, which is more suitable for kernel use than the existing CFI
@@ -131,6 +129,32 @@
 # Build a debug package with non-stripped vmlinux
 : "${_build_debug:=no}"
 
+# Enable AUTOFDO_CLANG for the first compilation to create a kernel, which can be used for profiling
+# Workflow:
+# https://cachyos.org/blog/2411-kernel-autofdo/
+# 1. Compile Kernel with _autofdo=yes and _build_debug=yes
+# 2. Boot the kernel in QEMU or on your system, see Workload
+# 3. Profile the kernel and convert the profile, see Generating the Profile for AutoFDO
+# 4. Put the profile into the sourcedir
+# 5. Run kernel build again with the _autofdo_profile_name path to profile specified
+: "${_autofdo:=no}"
+
+# Name for the AutoFDO profile
+: "${_autofdo_profile_name:=}"
+
+# Propeller should be applied, after the kernel is optimized with AutoFDO
+# Workflow:
+# 1. Proceed with above AutoFDO Optimization, but enable at the final compilation also _propeller
+# 2. Boot into the AutoFDO Kernel and profile it
+# 3. Convert the profile into the propeller profile, example:
+# create_llvm_prof --binary=/usr/src/debug/linux-cachyos-rc/vmlinux --profile=propeller.data --format=propeller --propeller_output_module_name --out=propeller_cc_profile.txt --propeller_symorder=propeller_ld_profile.txt
+# 4. Place the propeller_cc_profile.txt and propeller_ld_profile.txt into the srcdir
+# 5. Enable _propeller_prefix
+: "${_propeller:=no}"
+
+# Enable this after the profiles have been generated
+: "${_propeller_profiles:=no}"
+
 # ATTENTION: Do not modify after this line
 _is_lto_kernel() {
     [[ "$_use_llvm_lto" = "thin" || "$_use_llvm_lto" = "full"  || "$_use_llvm_lto" = "thin-dist" ]]
@@ -143,27 +167,31 @@ _is_ci_build() {
 }
 
 if _is_lto_kernel && [ "$_use_lto_suffix" = "yes"  ]; then
-    _pkgsuffix="kiro-lto"
+    _pkgsuffix="cachyos-rc-lto"
 elif ! _is_lto_kernel && [ "$_use_gcc_suffix" = "yes" ]; then
-    _pkgsuffix="kiro-gcc"
+    _pkgsuffix="cachyos-rc-gcc"
 else
-    _pkgsuffix="kiro"
+    _pkgsuffix="cachyos-rc"
 fi
 
 pkgbase="linux-$_pkgsuffix"
 _major=7.0
 _minor=0
 #_minorc=$((_minor+1))
-#_rcver=rc8
-pkgver=${_major}.${_minor}
-_tagrel=2
-pkgrel=1
-_srcname=cachyos-${_major}.${_minor}-${_tagrel}
-pkgdesc='Linux BORE scheduler kernel for gaming and desktop by Kiro'
+_rcver=rc7
+pkgver=${_major}.${_rcver}
+_tagrel=3
+pkgrel=2
+#_stable=${_major}.${_minor}
+#_stable=${_major}
+_stable=${_major}-${_rcver}
+_srctag=cachyos-${_major}-${_rcver}-${_tagrel}
+_srcname=${_srctag}
+pkgdesc='Linux Clang ThinLTO + AutoFDO  + Cachy Sauce Kernel by CachyOS with other patches and improvements - Release Candidate'
 _kernver="$pkgver-$pkgrel"
 _kernuname="${pkgver}-${_pkgsuffix}"
 arch=('x86_64')
-url="https://github.com/erikdubois/linux-kiro"
+url="https://github.com/CachyOS/linux-cachyos"
 license=('GPL-2.0-only')
 options=('!strip' '!debug' '!lto')
 makedepends=(
@@ -193,7 +221,7 @@ _nv_ver=595.58.03
 _nv_pkg="NVIDIA-Linux-x86_64-${_nv_ver}"
 _nv_open_pkg="NVIDIA-kernel-module-source-${_nv_ver}"
 source=(
-    "https://github.com/CachyOS/linux/releases/download/${_srcname}/${_srcname}.tar.gz"
+    "https://github.com/CachyOS/linux/releases/download/${_srctag}/${_srctag}.tar.gz"
     "config")
 
 # LLVM makedepends
@@ -229,13 +257,28 @@ if [ "$_build_nvidia_open" = "yes" ]; then
              "${_patchsource}/misc/nvidia/0005-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch")
 fi
 
+# Use generated AutoFDO Profile
+if [ "$_autofdo" = "yes" ] && [ -n "$_autofdo_profile_name" ]; then
+    if [ -e "$_autofdo_profile_name" ]; then
+        source+=("$_autofdo_profile_name")
+    else
+        _die "Failed to find file ${_autofdo_profile_name}"
+    fi
+fi
+
+# Use generated Propeller Profile
+if [ "$_propeller" = "yes" ] && [ "$_propeller_profiles" = "yes" ]; then
+    source+=(propeller_cc_profile.txt
+             propeller_ld_profile.txt)
+fi
+
 if [ "$_build_r8125" = "yes" ]; then
     source+=("git+https://github.com/aravance/r8125.git")
 fi
 
 ## List of CachyOS schedulers
 case "$_cpusched" in
-    cachyos|bore|rt-bore|hardened) # CachyOS Scheduler (BORE)
+    bore|rt-bore|hardened) # CachyOS Scheduler (BORE)
         source+=("${_patchsource}/sched/0001-bore-cachy.patch");;&
     bmq) ## Project C Scheduler
         source+=("${_patchsource}/sched/0001-prjc-cachy.patch");;
@@ -245,7 +288,7 @@ case "$_cpusched" in
         source+=("${_patchsource}/misc/0001-rt-i915.patch");;
 esac
 
-export KBUILD_BUILD_HOST=kiro
+export KBUILD_BUILD_HOST=cachyos
 export KBUILD_BUILD_USER="$pkgbase"
 export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EPOCH})"
 
@@ -415,6 +458,27 @@ prepare() {
 
     echo "Selecting '$_hugepage' TRANSPARENT_HUGEPAGE config..."
 
+    # Enable Clang AutoFDO
+    # Add additonal check if Thin or Full LTO is enabled otherwise die
+    if [ "$_autofdo" = "yes" ]; then
+        scripts/config -e AUTOFDO_CLANG
+    fi
+
+    if [ "$_autofdo" = "yes" ] && [ -n "$_autofdo_profile_name" ]; then
+        echo "AutoFDO profile has been found..."
+        BUILD_FLAGS+=(CLANG_AUTOFDO_PROFILE="${srcdir}/${_autofdo_profile_name}")
+    fi
+
+    # Propeller Optimization
+    if [ "$_propeller" = "yes" ]; then
+        scripts/config -e PROPELLER_CLANG
+    fi
+
+    if [ "$_propeller" = "yes" ] && [ "$_propeller_profiles" = "yes" ]; then
+        echo "Propeller profile has been found..."
+        BUILD_FLAGS+=(CLANG_PROPELLER_PROFILE_PREFIX="${srcdir}/propeller")
+    fi
+
     ### Optionally use running kernel's config
     # code originally by nous; http://aur.archlinux.org/packages.php?ID=40191
     if [ "$_use_current" = "yes" ]; then
@@ -529,7 +593,16 @@ build() {
 
 _package() {
     pkgdesc="The $pkgdesc kernel and modules"
-    depends=('coreutils' 'kmod' 'initramfs')
+    depends=(binutils
+      glibc
+      libelf
+      libgcc
+      openssl
+      pahole
+      xxhash
+      zlib
+      zstd
+     "${pkgbase}")
     optdepends=('wireless-regdb: to set the correct wireless channels of your country'
                 'linux-firmware: firmware images needed for some devices'
                 'modprobed-db: Keeps track of EVERY kernel module that has ever been probed - useful for those of us who make localmodconfig'
@@ -558,17 +631,12 @@ _package() {
 
 _package-headers() {
     pkgdesc="Headers and scripts for building modules for the $pkgdesc kernel"
-    depends=(binutils
-      glibc
-      libelf
-      libgcc
-      openssl
-      pahole
-      xxhash
-      zlib
-      zstd
-     "${pkgbase}")
+    depends=('pahole' "${pkgbase}")
     provides=(LINUX-HEADERS)
+
+    if _is_lto_kernel; then
+        depends+=(clang llvm lld)
+    fi
 
     cd "${_srcname}"
     local builddir="$pkgdir/usr/lib/modules/$(<version)/build"
@@ -749,6 +817,6 @@ for _p in "${pkgname[@]}"; do
     }"
 done
 
-b2sums=('40fefc434872c4ec8af8c780b2926d959ad74f1a3d94ad454d0f889caa67ab913cac3e5109f28c69c27acc4fc033c6c478128ba799447edbb207252923a63943'
+b2sums=('83a22300c3aca33fc4ba63171546d1ae1f1a3126553a61d45aa656e06a6d0b11a05a417f0854c75bf8570d9fd165765789af939c352388c57344b85de157cfad'
         'b247fa1ddea7d6124348fa66438715b1eb7afe279fd0d073cf9a366deecd322dbfea3843de0c61356f0d88b242cec42dbb6b2b2344d4ae9042335118c0c31e81'
-        '9dc1a5a46d8ecf606323926f22b4ce0aaf910dc47fd9ab9b8d08d1600e0bb45109babf7098f390562d8d8456239bb44b7db13b175fe2f529b9784a603dc11fbe')
+        'c992567bd7dd8553432be496ffa1c17e2f5ebe9c7edb51945cf977e1b742dd6517c210d8843bb82744ca705efd07f8027cd7dde41b50215ebd707a34aa81462e')

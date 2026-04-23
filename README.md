@@ -55,6 +55,14 @@ The `build-kernel.sh` script provides two preset configurations:
 - 1000Hz tick rate (low latency)
 - Full preemption
 - Transparent Huge Pages (always enabled)
+- Performance CPU governor (max clock speed, no ramp-up delays)
+- TCP BBR3 (lower online gaming latency)
+- Native CPU optimizations (compiled for your exact CPU)
+
+> **Warning — Native CPU:** The gaming kernel is compiled with `-march=native`,
+> meaning it is tied to the exact CPU it was built on. Do **not** copy this kernel
+> to another machine with a different CPU — it will crash or refuse to boot.
+> Rebuild from source on any new hardware.
 
 **Desktop Kernel** (optimized for productivity & power efficiency)
 
@@ -62,6 +70,19 @@ The `build-kernel.sh` script provides two preset configurations:
 - 500Hz tick rate (power efficient)
 - Lazy preemption (balanced)
 - Transparent Huge Pages (madvise)
+- Performance CPU governor
+- TCP BBR3
+- generic_v3 CPU optimizations (portable across Intel 10th gen+ / AMD Zen2+)
+
+### Hardware-Specific Config
+
+The included `config` file is pre-trimmed for the build machine (Intel i7-10700K, wired ethernet, Intel GPU):
+
+- **WiFi disabled** (`CONFIG_WIRELESS`, `CFG80211`, `MAC80211` not set) — wired-only machine
+- **AMD GPU disabled** (`DRM_AMDGPU`, `DRM_RADEON` not set) — Intel iGPU only
+- **Nouveau/NVIDIA disabled** (`DRM_NOUVEAU` not set)
+
+If your machine has WiFi, an AMD GPU, or uses Nouveau, re-enable the relevant options via `make nconfig` before building, or use `_use_current=yes` to base the config on your running kernel.
 
 ### Hardware Module Optimization
 
@@ -100,8 +121,8 @@ _HZ_ticks=1000            # 100, 250, 300, 500, 600, 750, 1000
 # Preemption (default: full)
 _preempt=full             # full, lazy, dynamic
 
-# CPU optimization (default: generic_v3)
-_processor_opt=generic_v3  # native, zen4, generic, generic_v1-v4
+# CPU optimization (gaming default: native, desktop default: generic_v3)
+_processor_opt=native      # native, zen4, generic, generic_v1-v4
 
 # LTO mode (default: none = GCC)
 _use_llvm_lto=none        # none, thin, full
@@ -153,23 +174,23 @@ After installation:
 ```bash
 # Check kernel version
 uname -r
-# Should show: 7.0.0-kiro
+# Should show: 7.0.1-kiro
 
 # Check BORE scheduler is active
 cat /proc/sched_debug | grep BORE
 
 # Check compilation optimization
-grep "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3" /boot/config-7.0.0-kiro
+grep "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3" /boot/config-7.0.1-kiro
 
 # Check preemption
-grep "CONFIG_PREEMPT" /boot/config-7.0.0-kiro
+grep "CONFIG_PREEMPT" /boot/config-7.0.1-kiro
 ```
 
 ## Key Differences from Stock Arch Linux
 
 | Feature | Arch Linux | linux-kiro |
 |---------|-----------|------------|
-| Kernel Version | Latest stable | 7.0.0 (CachyOS pre-patched) |
+| Kernel Version | Latest stable | 7.0.1 (CachyOS pre-patched) |
 | Scheduler | EEVDF (default) | BORE |
 | Compiler Flags | Standard | -O3 optimization |
 | Preemption | Dynamic | Full |

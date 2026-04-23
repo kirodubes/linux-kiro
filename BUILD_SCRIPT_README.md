@@ -18,6 +18,7 @@ The `build-kernel.sh` script provides an easy way to switch between gaming and d
 ✅ **Checksum updates** - Automatically runs `updpkgsums` before building  
 ✅ **Optional build** - Asks if you want to build immediately after configuration  
 ✅ **Interactive config option** - Option to run `nconfig` for manual kernel tweaking  
+✅ **Auto-organize packages** - Moves built `.pkg.tar.zst` files to `kernels/<type>/<modprobed>/<date>/` with a `build-info.md` summary  
 
 ## What Gets Changed
 
@@ -27,11 +28,16 @@ This is the current/default configuration - optimized for responsive gaming:
 | Parameter | Value |
 |-----------|-------|
 | CPU Scheduler | BORE |
-| Performance Governor | Disabled |
-| TCP BBR3 | Disabled |
+| Performance Governor | Enabled (max frequency) |
+| TCP BBR3 | Enabled (online gaming latency) |
 | Tick Rate | 1000Hz |
 | Preemption | Full |
 | Transparent Hugepages | Always |
+| CPU Optimization | Native (your exact CPU) |
+
+> **Warning:** Native CPU optimization means this kernel is compiled for your specific
+> CPU model. It will not run on machines with a different CPU architecture.
+> Rebuild from source on any new hardware.
 
 ### Desktop Kernel (Option 2)
 Recommended for productivity work - better for sustained workloads:
@@ -204,7 +210,7 @@ If you want to tweak kernel options beyond the preset configurations:
 
 ## What the Script Actually Modifies
 
-The script **only changes** these 6 parameters in PKGBUILD:
+The script **only changes** these 7 parameters in PKGBUILD:
 
 1. `_cpusched` - CPU scheduler selection
 2. `_per_gov` - Performance governor default
@@ -212,9 +218,10 @@ The script **only changes** these 6 parameters in PKGBUILD:
 4. `_HZ_ticks` - Kernel timer tick rate
 5. `_preempt` - Preemption type
 6. `_hugepage` - Transparent Hugepage mode
+7. `_processor_opt` - CPU instruction set optimization (native vs generic_v3)
 
 **Everything else remains untouched**, including:
-- CPU architecture optimization (stays as `generic_v3`)
+
 - Compiler optimization flags (stays as `-O3`)
 - Build dependencies
 - Module options

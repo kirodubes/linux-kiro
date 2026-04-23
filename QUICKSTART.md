@@ -45,8 +45,9 @@ Then:
 **Option 1: Gaming Kernel**
 - Current configuration you're already running
 - BORE scheduler, 1000Hz ticks, full preemption
-- Good for: Games, frame-rate sensitive work
-- Trade-off: Higher power usage, less predictable latency
+- Performance CPU governor, TCP BBR3, native CPU optimizations
+- Good for: Games, frame-rate sensitive work, online multiplayer
+- Trade-off: Higher power usage, kernel tied to your exact CPU (not portable)
 
 **Option 2: Desktop Kernel**
 - Optimized for productivity work (IDEs, browsers, development)
@@ -165,8 +166,11 @@ A: Yes, it's just a different balance of the same Linux kernel. All hardware wor
 **Q: Can I have both kernels?**  
 A: Yes, boot selection lets you choose. Or rebuild the other option with the script.
 
-**Q: Do I need to change anything else?**  
-A: No. The script handles everything. CPU optimization (generic_v3) is already optimal.
+**Q: Do I need to change anything else?**
+A: No. The script handles everything. Gaming uses native CPU optimization; desktop uses generic_v3 (portable).
+
+**Q: Can I copy the gaming kernel to another machine?**
+A: No. The gaming kernel is compiled with `-march=native` for your exact CPU. It will crash on different hardware. Rebuild from source on any new machine.
 
 **Q: What if something goes wrong?**  
 A: Restore your backup (`cp PKGBUILD.backup.DATE PKGBUILD`) and rebuild.
@@ -200,4 +204,4 @@ For deeper dives into the technology:
 
 **Created**: 2026-04-16  
 **Your Hardware**: Intel i7-10700K, 32GB RAM, 3.6TB SSD  
-**Current Kernel**: 7.0.0-1-kiro (BORE, gaming-optimized)
+**Current Kernel**: 7.0.1-1-kiro (BORE, gaming-optimized)

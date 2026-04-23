@@ -1,6 +1,6 @@
-# Maintainer: Erik Dubois <erik.dubois@gmail.com>
-# Based on: Peter Jung ptr1337 <admin@ptr1337.dev>
-# Based on: Piotr Gorski <piotrgorski@cachyos.org>
+# Maintainer: Peter Jung ptr1337 <admin@ptr1337.dev>
+# Maintainer: Piotr Gorski <piotrgorski@cachyos.org>
+# Maintainer: Vasiliy Stelmachenok <ventureo@cachyos.org>
 # Contributor: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
 # Contributor: Tobias Powalowski <tpowa@archlinux.org>
 # Contributor: Thomas Baechler <thomas@archlinux.org>
@@ -20,7 +20,7 @@
 # 'eevdf' - select 'EEVDF Scheduler'
 # 'rt' - select EEVDF, but includes a series of realtime patches
 # 'rt-bore' - select Burst-Oriented Response Enhancer, but includes a series of realtime patches
-: "${_cpusched:=bore}"
+: "${_cpusched:=cachyos}"
 
 ### Tweak kernel options prior to a build via nconfig
 : "${_makenconfig:=no}"
@@ -36,7 +36,7 @@
 # This PKGBUILD read the database kept if it exists
 #
 # More at this wiki page ---> https://wiki.archlinux.org/index.php/Modprobed-db
-: "${_localmodcfg:=yes}"
+: "${_localmodcfg:=no}"
 
 # Path to the list of used modules
 : "${_localmodcfg_path:="$HOME/.config/modprobed.db"}"
@@ -52,10 +52,10 @@
 : "${_cc_harder:=yes}"
 
 ### Set performance governor as default
-: "${_per_gov:=yes}"
+: "${_per_gov:=no}"
 
 ### Enable TCP_CONG_BBR3
-: "${_tcp_bbr3:=yes}"
+: "${_tcp_bbr3:=no}"
 
 ### Running with a 1000HZ, 750Hz, 600 Hz, 500Hz, 300Hz, 250Hz and 100Hz tick rate
 : "${_HZ_ticks:=1000}"
@@ -85,8 +85,7 @@
 # - "native" (use compiler autodetection)
 # - "zen4" (Use znver4 compiler optimizations)
 # - "generic" (kernel's default - to share the package between machines with different CPU µarch as long as they are x86-64)
-# - "generic_v3" (optimized for Intel 10th gen+ / AMD Zen2+, recommended for i7-10700K)
-: "${_processor_opt:=native}"
+: "${_processor_opt:=}"
 
 # Clang LTO mode, only available with the "llvm" compiler - options are "none", "full" or "thin".
 # ATTENTION - one of three predefined values should be selected!
@@ -94,18 +93,17 @@
 # "thin: uses multiple threads, faster and uses less memory, may have a lower runtime performance than Full."
 # "thin-dist: Similar to thin, but uses a distributed model rather than in-process: https://discourse.llvm.org/t/rfc-distributed-thinlto-build-for-kernel/85934"
 # "none: disable LTO
-: "${_use_llvm_lto:=none}"
+: "${_use_llvm_lto:=thin}"
 
 # Use suffix -lto only when requested by the user
-# Enabled by default.
 # yes - enable -lto suffix
 # no - disable -lto suffix
 # https://github.com/CachyOS/linux-cachyos/issues/36
-: "${_use_lto_suffix:=yes}"
+: "${_use_lto_suffix:=no}"
 
 # Use suffix -gcc when requested by the user
-# This was added to facilitate https://github.com/CachyOS/linux-cachyos/issues/286
-: "${_use_gcc_suffix:=no}"
+# Enabled by default to show the difference between LTO kernels and GCC kernels
+: "${_use_gcc_suffix:=yes}"
 
 # KCFI is a proposed forward-edge control-flow integrity scheme for
 # Clang, which is more suitable for kernel use than the existing CFI
@@ -149,7 +147,7 @@
 # 1. Proceed with above AutoFDO Optimization, but enable at the final compilation also _propeller
 # 2. Boot into the AutoFDO Kernel and profile it
 # 3. Convert the profile into the propeller profile, example:
-# create_llvm_prof --binary=/usr/src/debug/linux-kiro/vmlinux --profile=propeller.data --format=propeller --propeller_output_module_name --out=propeller_cc_profile.txt --propeller_symorder=propeller_ld_profile.txt
+# create_llvm_prof --binary=/usr/src/debug/linux-cachyos-rc/vmlinux --profile=propeller.data --format=propeller --propeller_output_module_name --out=propeller_cc_profile.txt --propeller_symorder=propeller_ld_profile.txt
 # 4. Place the propeller_cc_profile.txt and propeller_ld_profile.txt into the srcdir
 # 5. Enable _propeller_prefix
 : "${_propeller:=no}"
@@ -169,11 +167,11 @@ _is_ci_build() {
 }
 
 if _is_lto_kernel && [ "$_use_lto_suffix" = "yes"  ]; then
-    _pkgsuffix="kiro-lto"
+    _pkgsuffix=cachyos-lto
 elif ! _is_lto_kernel && [ "$_use_gcc_suffix" = "yes" ]; then
-    _pkgsuffix="kiro-gcc"
+    _pkgsuffix=cachyos-gcc
 else
-    _pkgsuffix="kiro"
+    _pkgsuffix=cachyos
 fi
 
 pkgbase="linux-$_pkgsuffix"
@@ -185,11 +183,11 @@ pkgver=${_major}.${_minor}
 _tagrel=2
 pkgrel=1
 _srcname=cachyos-${_major}.${_minor}-${_tagrel}
-pkgdesc='Linux BORE scheduler kernel for gaming and desktop by Kiro'
+pkgdesc='Linux EEVDF + LTO + AutoFDO + Propeller Cachy Sauce Kernel by CachyOS with other patches and improvements.'
 _kernver="$pkgver-$pkgrel"
 _kernuname="${pkgver}-${_pkgsuffix}"
 arch=('x86_64')
-url="https://github.com/erikdubois/linux-kiro"
+url="https://github.com/CachyOS/linux-cachyos"
 license=('GPL-2.0-only')
 options=('!strip' '!debug' '!lto')
 makedepends=(
@@ -255,10 +253,6 @@ if [ "$_build_nvidia_open" = "yes" ]; then
              "${_patchsource}/misc/nvidia/0005-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch")
 fi
 
-if [ "$_build_r8125" = "yes" ]; then
-    source+=("git+https://github.com/aravance/r8125.git")
-fi
-
 # Use generated AutoFDO Profile
 if [ "$_autofdo" = "yes" ] && [ -n "$_autofdo_profile_name" ]; then
     if [ -e "$_autofdo_profile_name" ]; then
@@ -274,9 +268,13 @@ if [ "$_propeller" = "yes" ] && [ "$_propeller_profiles" = "yes" ]; then
              propeller_ld_profile.txt)
 fi
 
+if [ "$_build_r8125" = "yes" ]; then
+    source+=("git+https://github.com/aravance/r8125.git")
+fi
+
 ## List of CachyOS schedulers
 case "$_cpusched" in
-    cachyos|bore|rt-bore|hardened) # CachyOS Scheduler (BORE)
+    bore|rt-bore|hardened) # CachyOS Scheduler (BORE)
         source+=("${_patchsource}/sched/0001-bore-cachy.patch");;&
     bmq) ## Project C Scheduler
         source+=("${_patchsource}/sched/0001-prjc-cachy.patch");;
@@ -286,7 +284,7 @@ case "$_cpusched" in
         source+=("${_patchsource}/misc/0001-rt-i915.patch");;
 esac
 
-export KBUILD_BUILD_HOST=kiro
+export KBUILD_BUILD_HOST=cachyos
 export KBUILD_BUILD_USER="$pkgbase"
 export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EPOCH})"
 
@@ -457,6 +455,7 @@ prepare() {
     echo "Selecting '$_hugepage' TRANSPARENT_HUGEPAGE config..."
 
     # Enable Clang AutoFDO
+    # Add additonal check if Thin or Full LTO is enabled otherwise die
     if [ "$_autofdo" = "yes" ]; then
         scripts/config -e AUTOFDO_CLANG
     fi
@@ -596,9 +595,10 @@ _package() {
                 'modprobed-db: Keeps track of EVERY kernel module that has ever been probed - useful for those of us who make localmodconfig'
                 'scx-scheds: to use sched-ext schedulers')
     provides=(VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE KSMBD-MODULE V4L2LOOPBACK-MODULE NTSYNC-MODULE VHBA-MODULE ADIOS-MODULE)
+    # Replace LTO kernel with the default kernel
     if _is_lto_kernel; then
-        provides+=(linux-kiro-lto=$_kernver)
-        replaces=(linux-kiro-lto)
+        provides+=(linux-cachyos-lto=$_kernver)
+        replaces=(linux-cachyos-lto)
     fi
 
     cd "$_srcname"
@@ -634,9 +634,10 @@ _package-headers() {
       zstd
      "${pkgbase}")
     provides=(LINUX-HEADERS)
+
     if _is_lto_kernel; then
-        provides+=(linux-kiro-lto-headers=$_kernver)
-        replaces=(linux-kiro-lto-headers)
+        provides+=(linux-cachyos-lto-headers=$_kernver)
+        replaces=(linux-cachyos-lto-headers)
         depends+=(clang llvm lld)
     fi
 
@@ -820,5 +821,5 @@ for _p in "${pkgname[@]}"; do
 done
 
 b2sums=('dae09018438025ff879cdcc79376bbbb45250125dd1912b2d6185993d0a7ff44967f4f79b94d9e61ee52f9b17dcdd6359fd521245faada042d735d4bf72a8b6f'
-        '9ae1e3a55eb44b558e5d9901f8846542caadbacd92240d5d1347b121c89fec9615662352f484f52b96dbbdfc645408aba4de435b2301feddbf2a1b935ee65471'
-        '9dc1a5a46d8ecf606323926f22b4ce0aaf910dc47fd9ab9b8d08d1600e0bb45109babf7098f390562d8d8456239bb44b7db13b175fe2f529b9784a603dc11fbe')
+        'b247fa1ddea7d6124348fa66438715b1eb7afe279fd0d073cf9a366deecd322dbfea3843de0c61356f0d88b242cec42dbb6b2b2344d4ae9042335118c0c31e81'
+        'c992567bd7dd8553432be496ffa1c17e2f5ebe9c7edb51945cf977e1b742dd6517c210d8843bb82744ca705efd07f8027cd7dde41b50215ebd707a34aa81462e')

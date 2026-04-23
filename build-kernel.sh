@@ -18,6 +18,11 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PKGBUILD="$SCRIPT_DIR/PKGBUILD"
 PKGBUILD_BACKUP="$SCRIPT_DIR/PKGBUILD.backup.$(date +%Y%m%d_%H%M%S)"
 
+# Build state
+KERNEL_TYPE=""
+MODPROBED_ENABLED=true
+NCONFIG_ENABLED=false
+
 # ==============================================================================
 # Configuration Presets
 # ==============================================================================
@@ -25,11 +30,12 @@ PKGBUILD_BACKUP="$SCRIPT_DIR/PKGBUILD.backup.$(date +%Y%m%d_%H%M%S)"
 # Gaming Kernel Configuration (Current/Default)
 GAMING_CONFIG=(
   '_cpusched=bore'
-  '_per_gov=no'
-  '_tcp_bbr3=no'
+  '_per_gov=yes'
+  '_tcp_bbr3=yes'
   '_HZ_ticks=1000'
   '_preempt=full'
   '_hugepage=always'
+  '_processor_opt=native'
 )
 
 # Desktop Kernel Configuration (Optimized for productivity)
@@ -40,6 +46,7 @@ DESKTOP_CONFIG=(
   '_HZ_ticks=500'
   '_preempt=lazy'
   '_hugepage=madvise'
+  '_processor_opt=generic_v3'
 )
 
 # ==============================================================================
@@ -58,7 +65,10 @@ print_menu() {
   echo -e "     - BORE scheduler (burst responsiveness)"
   echo -e "     - 1000Hz tick rate (low latency)"
   echo -e "     - Full preemption"
-  echo -e "     - THP always enabled\n"
+  echo -e "     - THP always enabled"
+  echo -e "     - Performance CPU governor (max frequency)"
+  echo -e "     - TCP BBR3 (online gaming latency)"
+  echo -e "     - Native CPU optimizations\n"
   echo -e "  ${BLUE}2)${NC} Desktop Kernel"
   echo -e "     - EEVDF scheduler (fair scheduling)"
   echo -e "     - 500Hz tick rate (power efficient)"
@@ -71,11 +81,12 @@ print_comparison() {
   echo -e "Setting              │ Gaming      │ Desktop"
   echo -e "─────────────────────┼─────────────┼──────────────"
   echo -e "_cpusched            │ bore        │ eevdf"
-  echo -e "_per_gov (perf gov)  │ no          │ yes"
-  echo -e "_tcp_bbr3            │ no          │ yes"
+  echo -e "_per_gov (perf gov)  │ yes         │ yes"
+  echo -e "_tcp_bbr3            │ yes         │ yes"
   echo -e "_HZ_ticks            │ 1000        │ 500"
   echo -e "_preempt             │ full        │ lazy"
   echo -e "_hugepage            │ always      │ madvise"
+  echo -e "_processor_opt       │ native      │ generic_v3"
 }
 
 validate_pkgbuild() {
@@ -170,14 +181,26 @@ check_modprobed_db() {
       echo -e "${GREEN}Then you can re-run this script and enable local module config.${NC}\n"
       return 1
     else
+      # Ensure VirtualBox modules are always present regardless of db state
+      local vbox_modules=(vboxdrv vboxnetadp vboxnetflt)
+      for mod in "${vbox_modules[@]}"; do
+        if ! grep -qx "$mod" "$modprobed_db"; then
+          echo "$mod" >> "$modprobed_db"
+          echo -e "${YELLOW}+${NC} Added missing module: $mod"
+        fi
+      done
+      sort -u "$modprobed_db" -o "$modprobed_db"
+
       local module_count=$(wc -l < "$modprobed_db")
       sed -i 's/: "${_localmodcfg:=no}"/: "${_localmodcfg:=yes}"/g' "$PKGBUILD"
+      MODPROBED_ENABLED=true
       echo -e "${GREEN}✓${NC} Local module config enabled (${module_count} modules tracked)"
       return 0
     fi
   else
     echo -e "${GREEN}✓${NC} Local module config disabled - will compile all modules"
     sed -i 's/: "${_localmodcfg:=yes}"/: "${_localmodcfg:=no}"/g' "$PKGBUILD"
+    MODPROBED_ENABLED=false
     return 0
   fi
 }
@@ -188,6 +211,7 @@ ask_interactive_config() {
   echo
   if [[ $REPLY =~ ^[Yy]$ ]]; then
     sed -i 's/: "${_makenconfig:=no}"/: "${_makenconfig:=yes}"/g' "$PKGBUILD"
+    NCONFIG_ENABLED=true
     echo -e "${GREEN}✓${NC} nconfig enabled - you'll be prompted during build"
   else
     sed -i 's/: "${_makenconfig:=yes}"/: "${_makenconfig:=no}"/g' "$PKGBUILD"
@@ -257,6 +281,46 @@ show_verification_commands() {
   echo -e "  cat /sys/kernel/mm/transparent_hugepage/enabled\n"
 }
 
+move_packages() {
+  local build_date
+  build_date=$(date +%y%m%d-%H%M)
+
+  local modprobed_dir
+  if [[ "$MODPROBED_ENABLED" == "true" ]]; then
+    modprobed_dir="Modprobed"
+  else
+    modprobed_dir="Nomodprobed"
+  fi
+
+  local dest="$SCRIPT_DIR/kernels/$KERNEL_TYPE/$modprobed_dir/$build_date"
+
+  local pkg_files=("$SCRIPT_DIR"/*.pkg.tar.zst)
+  if [[ ! -e "${pkg_files[0]}" ]]; then
+    echo -e "${YELLOW}⚠ No .pkg.tar.zst files found to move${NC}"
+    return
+  fi
+
+  mkdir -p "$dest"
+  mv "$SCRIPT_DIR"/*.pkg.tar.zst "$dest/"
+
+  cat > "$dest/build-info.md" <<EOF
+# Kiro Kernel Build Info
+
+- **Date:** $build_date
+- **Type:** $KERNEL_TYPE
+- **CPU Scheduler:** $(grep '_cpusched:=' "$PKGBUILD" | head -1 | grep -o '[^=}]*}' | tr -d '}')
+- **HZ Ticks:** $(grep '_HZ_ticks:=' "$PKGBUILD" | head -1 | grep -o '[^=}]*}' | tr -d '}')
+- **Preempt:** $(grep '_preempt:=' "$PKGBUILD" | head -1 | grep -o '[^=}]*}' | tr -d '}')
+- **Hugepage:** $(grep '_hugepage:=' "$PKGBUILD" | head -1 | grep -o '[^=}]*}' | tr -d '}')
+- **Processor Opt:** $(grep '_processor_opt:=' "$PKGBUILD" | head -1 | grep -o '[^=}]*}' | tr -d '}')
+- **Modprobed:** $MODPROBED_ENABLED
+- **nconfig:** $NCONFIG_ENABLED
+EOF
+
+  echo -e "${GREEN}✓${NC} Packages moved to: $dest"
+  echo -e "${GREEN}✓${NC} Build info saved: $dest/build-info.md"
+}
+
 # ==============================================================================
 # Main Script
 # ==============================================================================
@@ -273,6 +337,7 @@ main() {
 
   case $choice in
     1)
+      KERNEL_TYPE="gaming"
       echo -e "\n${BLUE}Configuring for Gaming Kernel...${NC}"
       create_backup
 
@@ -285,6 +350,7 @@ main() {
       fi
       ;;
     2)
+      KERNEL_TYPE="desktop"
       echo -e "\n${BLUE}Configuring for Desktop Kernel...${NC}"
       create_backup
 
@@ -311,6 +377,7 @@ main() {
   # Ask about building
   if ask_build; then
     start_build
+    move_packages
     show_verification_commands
   else
     echo -e "\n${YELLOW}Build skipped. Run the following when ready:${NC}"

@@ -3,14 +3,14 @@
 **System**: Erik Dubois  
 **Date**: 2026-04-16  
 **Hardware**: Intel Core i7-10700K, 32GB RAM, 3.6TB SSD  
-**Current Kernel**: 7.0.0-1-kiro (BORE, Full Preemption)  
+**Current Kernel**: 7.0.1-1-kiro (BORE, Full Preemption)  
 **Use Case**: Desktop productivity (not gaming)
 
 ---
 
 ## Executive Summary
 
-Your kernel is currently configured for **gaming optimization** (BORE scheduler, high preemption, 1000Hz tick rate). However, you've indicated your primary goals are **speed, stability, and responsiveness for non-gaming desktop use**. 
+Your kernel is currently configured for **gaming optimization** (BORE scheduler, high preemption, 1000Hz tick rate). However, you've indicated your primary goals are **speed, stability, and responsiveness for non-gaming desktop use**.
 
 **Key Finding**: Gaming kernels and productivity kernels have different optimal configurations. Your current setup, while good for games, is *sub-optimal for general desktop work*. Below are evidence-based recommendations.
 
@@ -18,27 +18,29 @@ Your kernel is currently configured for **gaming optimization** (BORE scheduler,
 
 ## Current System Analysis
 
-### Hardware Profile ✓
+### Hardware Profile
+
 - **CPU**: Intel i7-10700K (8-core/16-thread, Comet Lake)
   - Base: 3.8GHz, Boost: 5.1GHz
   - 16MB L3 cache, 2MB L2 per core
-  - Current CPU optimization: `generic_v3` ✓ (correct for your CPU)
-- **Memory**: 32GB RAM ✓ (excellent for multitasking)
-- **Storage**: 3.6TB SSD ✓ (fast I/O subsystem)
-- **CPU Frequency Scaling**: Currently in `powersave` mode (suboptimal for responsiveness)
+  - Current CPU optimization: `native` (gaming) / `generic_v3` (desktop)
+- **Memory**: 32GB RAM (excellent for multitasking)
+- **Storage**: 3.6TB SSD (fast I/O subsystem)
+- **CPU Frequency Scaling**: Performance governor (gaming) / schedutil (desktop)
 
 ### Current Kernel Configuration
 
-| Setting | Current | Gaming-Optimized? | Your Use Case |
-|---------|---------|------------------|---------------|
-| CPU Scheduler | BORE | ✓ Yes | ✗ Not ideal |
-| Preemption | Full | ✓ Yes | ⚠ Overhead |
-| Tick Rate | 1000Hz | ✓ Yes | ✗ Too high |
-| THP Mode | Always | ⚠ Aggressive | ✗ Unpredictable |
-| CPU Governor | SCHEDUTIL | ⚠ Dynamic | ⚠ In powersave |
-| I/O Scheduler | BFQ | ✓ Good | ✓ Good |
-| Compiler | -O3 | ✓ Yes | ✓ Yes |
-| CPU Detect | generic_v3 | ✓ Correct | ✓ Correct |
+| Setting          | Gaming Kernel    | Desktop Kernel  |
+| ---------------- | ---------------- | --------------- |
+| CPU Scheduler    | BORE             | EEVDF           |
+| Preemption       | Full             | Lazy            |
+| Tick Rate        | 1000Hz           | 500Hz           |
+| THP Mode         | Always           | Madvise         |
+| CPU Governor     | Performance      | Performance     |
+| TCP BBR3         | Enabled          | Enabled         |
+| I/O Scheduler    | BFQ              | BFQ             |
+| Compiler         | -O3              | -O3             |
+| CPU Optimization | native           | generic_v3      |
 
 ---
 

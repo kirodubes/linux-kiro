@@ -1,6 +1,6 @@
-# Maintainer: Erik Dubois <erik.dubois@gmail.com>
-# Based on: Peter Jung ptr1337 <admin@ptr1337.dev>
-# Based on: Piotr Gorski <piotrgorski@cachyos.org>
+# Maintainer: Peter Jung ptr1337 <admin@ptr1337.dev>
+# Maintainer: Piotr Gorski <piotrgorski@cachyos.org>
+# Maintainer: Vasiliy Stelmachenok <ventureo@cachyos.org>
 # Contributor: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
 # Contributor: Tobias Powalowski <tpowa@archlinux.org>
 # Contributor: Thomas Baechler <thomas@archlinux.org>
@@ -20,7 +20,7 @@
 # 'eevdf' - select 'EEVDF Scheduler'
 # 'rt' - select EEVDF, but includes a series of realtime patches
 # 'rt-bore' - select Burst-Oriented Response Enhancer, but includes a series of realtime patches
-: "${_cpusched:=eevdf}"
+: "${_cpusched:=cachyos}"
 
 ### Tweak kernel options prior to a build via nconfig
 : "${_makenconfig:=no}"
@@ -52,26 +52,20 @@
 : "${_cc_harder:=yes}"
 
 ### Set performance governor as default
-: "${_per_gov:=yes}"
+: "${_per_gov:=no}"
 
 ### Enable TCP_CONG_BBR3
-: "${_tcp_bbr3:=yes}"
+: "${_tcp_bbr3:=no}"
 
 ### Running with a 1000HZ, 750Hz, 600 Hz, 500Hz, 300Hz, 250Hz and 100Hz tick rate
-: "${_HZ_ticks:=500}"
+: "${_HZ_ticks:=1000}"
 
 ## Choose between perodic, idle or full
 ### Full tickless can give higher performances in various cases but, depending on hardware, lower consistency.
 : "${_tickrate:=full}"
 
-## Choose between full, lazy or dynamic
-# Dynamic allows you to switch between full and lazy at runtime
-# Full: Makes all non-critical kernel code preemptible to reduce latency
-# Lazy: Same as full but instead of preempting immediately it waits for signals from the scheduler
-#       in an attempt to boost throughput.
-#       In practice, this doesn't seem to perform well as both throughput and latency suffer
-#       compared to full.
-: "${_preempt:=lazy}"
+## Choose between full(low-latency), lazy, voluntary or none
+: "${_preempt:=full}"
 
 ### Transparent Hugepages
 # ATTENTION - one of two predefined values should be selected!
@@ -79,14 +73,13 @@
 # 'madvise' - madvise, prevent applications from allocating more memory resources than necessary
 # More infos here:
 # https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/performance_tuning_guide/sect-red_hat_enterprise_linux-performance_tuning_guide-configuring_transparent_huge_pages
-: "${_hugepage:=madvise}"
+: "${_hugepage:=always}"
 
 # CPU compiler optimizations - Defaults to native if left empty
 # - "native" (use compiler autodetection)
 # - "zen4" (Use znver4 compiler optimizations)
 # - "generic" (kernel's default - to share the package between machines with different CPU µarch as long as they are x86-64)
-# - "generic_v3" (optimized for Intel 10th gen+ / AMD Zen2+, recommended for i7-10700K)
-: "${_processor_opt:=generic_v3}"
+: "${_processor_opt:=}"
 
 # Clang LTO mode, only available with the "llvm" compiler - options are "none", "full" or "thin".
 # ATTENTION - one of three predefined values should be selected!
@@ -101,10 +94,10 @@
 # yes - enable -lto suffix
 # no - disable -lto suffix
 # https://github.com/CachyOS/linux-cachyos/issues/36
-: "${_use_lto_suffix:=yes}"
+: "${_use_lto_suffix:=no}"
 
 # Use suffix -gcc when requested by the user
-# This was added to facilitate https://github.com/CachyOS/linux-cachyos/issues/286
+# Enabled by default to show the difference between LTO kernels and GCC kernels
 : "${_use_gcc_suffix:=no}"
 
 # KCFI is a proposed forward-edge control-flow integrity scheme for
@@ -143,27 +136,31 @@ _is_ci_build() {
 }
 
 if _is_lto_kernel && [ "$_use_lto_suffix" = "yes"  ]; then
-    _pkgsuffix="kiro-lto"
+    _pkgsuffix="cachyos-lts-lto"
 elif ! _is_lto_kernel && [ "$_use_gcc_suffix" = "yes" ]; then
-    _pkgsuffix="kiro-gcc"
+    _pkgsuffix="cachyos-lts-gcc"
 else
-    _pkgsuffix="kiro"
+    _pkgsuffix="cachyos-lts"
 fi
 
 pkgbase="linux-$_pkgsuffix"
-_major=7.0
-_minor=0
+_major=6.18
+_minor=24
 #_minorc=$((_minor+1))
 #_rcver=rc8
 pkgver=${_major}.${_minor}
-_tagrel=2
+_tagrel=1
 pkgrel=1
-_srcname=cachyos-${_major}.${_minor}-${_tagrel}
-pkgdesc='Linux BORE scheduler kernel for gaming and desktop by Kiro'
+_stable=${_major}.${_minor}
+#_stable=${_major}
+#_stablerc=${_major}-${_rcver}
+_srctag=cachyos-${_major}.${_minor}-${_tagrel}
+_srcname=${_srctag}
+pkgdesc='Linux BORE + Cachy Sauce Kernel by CachyOS with other patches and improvements - Long Term Service'
 _kernver="$pkgver-$pkgrel"
 _kernuname="${pkgver}-${_pkgsuffix}"
 arch=('x86_64')
-url="https://github.com/erikdubois/linux-kiro"
+url="https://github.com/CachyOS/linux-cachyos"
 license=('GPL-2.0-only')
 options=('!strip' '!debug' '!lto')
 makedepends=(
@@ -193,7 +190,7 @@ _nv_ver=595.58.03
 _nv_pkg="NVIDIA-Linux-x86_64-${_nv_ver}"
 _nv_open_pkg="NVIDIA-kernel-module-source-${_nv_ver}"
 source=(
-    "https://github.com/CachyOS/linux/releases/download/${_srcname}/${_srcname}.tar.gz"
+    "https://github.com/CachyOS/linux/releases/download/${_srctag}/${_srctag}.tar.gz"
     "config")
 
 # LLVM makedepends
@@ -216,17 +213,13 @@ fi
 # ZFS support
 if [ "$_build_zfs" = "yes" ]; then
     makedepends+=(git)
-    source+=("git+https://github.com/cachyos/zfs.git#commit=0829cf892b5d7b3a0e8aa76cc7aca02b84f62557")
+    source+=("git+https://github.com/cachyos/zfs.git#commit=1c702dda346a59e05cfd3029569bbb1d5d91c54b")
 fi
 
 
 if [ "$_build_nvidia_open" = "yes" ]; then
     source+=("https://download.nvidia.com/XFree86/${_nv_open_pkg%"-$_nv_ver"}/${_nv_open_pkg}.tar.xz"
-             "${_patchsource}/misc/nvidia/0002-Add-IBT-support.patch"
-             "${_patchsource}/misc/nvidia/0004-HACK-kernel-open-Makefile-Remove-PAHOLE_VARIABLE.patch"
-             "${_patchsource}/misc/nvidia/0003-fix-dsc-correct-RC-parameter-tables-to-match-VESA-DS.patch"
-             "${_patchsource}/misc/nvidia/0004-fix-dsc-use-bits_per_component-for-flatnessDetThresh.patch"
-             "${_patchsource}/misc/nvidia/0005-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch")
+             "${_patchsource}/misc/nvidia/0002-Add-IBT-support.patch")
 fi
 
 if [ "$_build_r8125" = "yes" ]; then
@@ -235,7 +228,7 @@ fi
 
 ## List of CachyOS schedulers
 case "$_cpusched" in
-    cachyos|bore|rt-bore|hardened) # CachyOS Scheduler (BORE)
+    bore|rt-bore|hardened) # CachyOS Scheduler (BORE)
         source+=("${_patchsource}/sched/0001-bore-cachy.patch");;&
     bmq) ## Project C Scheduler
         source+=("${_patchsource}/sched/0001-prjc-cachy.patch");;
@@ -245,7 +238,7 @@ case "$_cpusched" in
         source+=("${_patchsource}/misc/0001-rt-i915.patch");;
 esac
 
-export KBUILD_BUILD_HOST=kiro
+export KBUILD_BUILD_HOST=cachyos
 export KBUILD_BUILD_USER="$pkgbase"
 export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EPOCH})"
 
@@ -365,9 +358,10 @@ prepare() {
     # We should not set up the PREEMPT for RT kernels
     if [[ "$_cpusched" != "rt" && "$_cpusched" != "rt-bore" ]]; then
         case "$_preempt" in
-            full) scripts/config -d PREEMPT_DYNAMIC -e PREEMPT -d PREEMPT_LAZY;;
-            lazy) scripts/config -d PREEMPT_DYNAMIC -d PREEMPT -e PREEMPT_LAZY;;
-            dynamic) scripts/config -e PREEMPT_DYNAMIC -e PREEMPT -d PREEMPT_LAZY;;
+            full) scripts/config -e PREEMPT_DYNAMIC -e PREEMPT -d PREEMPT_VOLUNTARY -d PREEMPT_LAZY -d PREEMPT_NONE;;
+            lazy) scripts/config -e PREEMPT_DYNAMIC -d PREEMPT -d PREEMPT_VOLUNTARY -e PREEMPT_LAZY -d PREEMPT_NONE;;
+            voluntary) scripts/config -d PREEMPT_DYNAMIC -d PREEMPT -e PREEMPT_VOLUNTARY -d PREEMPT_LAZY -d PREEMPT_NONE;;
+            none) scripts/config -d PREEMPT_DYNAMIC -d PREEMPT -d PREEMPT_VOLUNTARY -d PREEMPT_LAZY -e PREEMPT_NONE;;
             *) _die "The value '$_preempt' is invalid. Choose the correct one again.";;
         esac
 
@@ -414,6 +408,9 @@ prepare() {
     esac
 
     echo "Selecting '$_hugepage' TRANSPARENT_HUGEPAGE config..."
+
+    echo "Enable USER_NS_UNPRIVILEGED"
+    scripts/config -e USER_NS
 
     ### Optionally use running kernel's config
     # code originally by nous; http://aur.archlinux.org/packages.php?ID=40191
@@ -749,5 +746,5 @@ for _p in "${pkgname[@]}"; do
     }"
 done
 
-b2sums=('40fefc434872c4ec8af8c780b2926d959ad74f1a3d94ad454d0f889caa67ab913cac3e5109f28c69c27acc4fc033c6c478128ba799447edbb207252923a63943'
-        'b247fa1ddea7d6124348fa66438715b1eb7afe279fd0d073cf9a366deecd322dbfea3843de0c61356f0d88b242cec42dbb6b2b2344d4ae9042335118c0c31e81')
+b2sums=('778bd87ba9e39b37f931752124cd6e10625a5e258d15a2d96d0cf5bc49ddd47c6a7646403d518adf693904686338fe93cf80ea89503d7826e503129ddaf838fc'
+        '81fafd3adcaf3b690d8d4791693e68c7ae921d103ebfd70e8d0ae15cd05ecde5e6672ae43c3a7875686d883c1f5b82d2c8b37b40aee8dcb0563913f9dd6469b6')

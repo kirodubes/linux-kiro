@@ -1,6 +1,6 @@
-# Maintainer: Erik Dubois <erik.dubois@gmail.com>
-# Based on: Peter Jung ptr1337 <admin@ptr1337.dev>
-# Based on: Piotr Gorski <piotrgorski@cachyos.org>
+# Maintainer: Peter Jung ptr1337 <admin@ptr1337.dev>
+# Maintainer: Piotr Gorski <piotrgorski@cachyos.org>
+# Maintainer: Vasiliy Stelmachenok <ventureo@cachyos.org>
 # Contributor: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
 # Contributor: Tobias Powalowski <tpowa@archlinux.org>
 # Contributor: Thomas Baechler <thomas@archlinux.org>
@@ -20,7 +20,7 @@
 # 'eevdf' - select 'EEVDF Scheduler'
 # 'rt' - select EEVDF, but includes a series of realtime patches
 # 'rt-bore' - select Burst-Oriented Response Enhancer, but includes a series of realtime patches
-: "${_cpusched:=bore}"
+: "${_cpusched:=hardened}"
 
 ### Tweak kernel options prior to a build via nconfig
 : "${_makenconfig:=no}"
@@ -36,7 +36,7 @@
 # This PKGBUILD read the database kept if it exists
 #
 # More at this wiki page ---> https://wiki.archlinux.org/index.php/Modprobed-db
-: "${_localmodcfg:=yes}"
+: "${_localmodcfg:=no}"
 
 # Path to the list of used modules
 : "${_localmodcfg_path:="$HOME/.config/modprobed.db"}"
@@ -52,10 +52,10 @@
 : "${_cc_harder:=yes}"
 
 ### Set performance governor as default
-: "${_per_gov:=yes}"
+: "${_per_gov:=no}"
 
 ### Enable TCP_CONG_BBR3
-: "${_tcp_bbr3:=yes}"
+: "${_tcp_bbr3:=no}"
 
 ### Running with a 1000HZ, 750Hz, 600 Hz, 500Hz, 300Hz, 250Hz and 100Hz tick rate
 : "${_HZ_ticks:=1000}"
@@ -64,13 +64,7 @@
 ### Full tickless can give higher performances in various cases but, depending on hardware, lower consistency.
 : "${_tickrate:=full}"
 
-## Choose between full, lazy or dynamic
-# Dynamic allows you to switch between full and lazy at runtime
-# Full: Makes all non-critical kernel code preemptible to reduce latency
-# Lazy: Same as full but instead of preempting immediately it waits for signals from the scheduler
-#       in an attempt to boost throughput.
-#       In practice, this doesn't seem to perform well as both throughput and latency suffer
-#       compared to full.
+## Choose between full(low-latency), lazy, voluntary or none
 : "${_preempt:=full}"
 
 ### Transparent Hugepages
@@ -85,8 +79,7 @@
 # - "native" (use compiler autodetection)
 # - "zen4" (Use znver4 compiler optimizations)
 # - "generic" (kernel's default - to share the package between machines with different CPU µarch as long as they are x86-64)
-# - "generic_v3" (optimized for Intel 10th gen+ / AMD Zen2+, recommended for i7-10700K)
-: "${_processor_opt:=native}"
+: "${_processor_opt:=}"
 
 # Clang LTO mode, only available with the "llvm" compiler - options are "none", "full" or "thin".
 # ATTENTION - one of three predefined values should be selected!
@@ -131,32 +124,6 @@
 # Build a debug package with non-stripped vmlinux
 : "${_build_debug:=no}"
 
-# Enable AUTOFDO_CLANG for the first compilation to create a kernel, which can be used for profiling
-# Workflow:
-# https://cachyos.org/blog/2411-kernel-autofdo/
-# 1. Compile Kernel with _autofdo=yes and _build_debug=yes
-# 2. Boot the kernel in QEMU or on your system, see Workload
-# 3. Profile the kernel and convert the profile, see Generating the Profile for AutoFDO
-# 4. Put the profile into the sourcedir
-# 5. Run kernel build again with the _autofdo_profile_name path to profile specified
-: "${_autofdo:=no}"
-
-# Name for the AutoFDO profile
-: "${_autofdo_profile_name:=}"
-
-# Propeller should be applied, after the kernel is optimized with AutoFDO
-# Workflow:
-# 1. Proceed with above AutoFDO Optimization, but enable at the final compilation also _propeller
-# 2. Boot into the AutoFDO Kernel and profile it
-# 3. Convert the profile into the propeller profile, example:
-# create_llvm_prof --binary=/usr/src/debug/linux-kiro/vmlinux --profile=propeller.data --format=propeller --propeller_output_module_name --out=propeller_cc_profile.txt --propeller_symorder=propeller_ld_profile.txt
-# 4. Place the propeller_cc_profile.txt and propeller_ld_profile.txt into the srcdir
-# 5. Enable _propeller_prefix
-: "${_propeller:=no}"
-
-# Enable this after the profiles have been generated
-: "${_propeller_profiles:=no}"
-
 # ATTENTION: Do not modify after this line
 _is_lto_kernel() {
     [[ "$_use_llvm_lto" = "thin" || "$_use_llvm_lto" = "full"  || "$_use_llvm_lto" = "thin-dist" ]]
@@ -169,27 +136,31 @@ _is_ci_build() {
 }
 
 if _is_lto_kernel && [ "$_use_lto_suffix" = "yes"  ]; then
-    _pkgsuffix="kiro-lto"
+    _pkgsuffix="cachyos-${_cpusched}-lto"
 elif ! _is_lto_kernel && [ "$_use_gcc_suffix" = "yes" ]; then
-    _pkgsuffix="kiro-gcc"
+    _pkgsuffix="cachyos-${_cpusched}-gcc"
 else
-    _pkgsuffix="kiro"
+    _pkgsuffix="cachyos-${_cpusched}"
 fi
 
 pkgbase="linux-$_pkgsuffix"
-_major=7.0
-_minor=1
+_major=6.19
+_minor=12
 #_minorc=$((_minor+1))
 #_rcver=rc8
 pkgver=${_major}.${_minor}
 _tagrel=2
 pkgrel=1
-_srcname=cachyos-${_major}.${_minor}-${_tagrel}
-pkgdesc='Linux BORE scheduler kernel for gaming and desktop by Kiro'
+#_stable=${_major}.${_minor}
+_stable=${_major}
+#_stablerc=${_major}-${_rcver}
+_srctag=cachyos-${_major}.${_minor}-${_tagrel}
+_srcname=${_srctag}
+pkgdesc='Linux BORE scheduler and hardened Kernel by CachyOS with other patches and improvements'
 _kernver="$pkgver-$pkgrel"
 _kernuname="${pkgver}-${_pkgsuffix}"
 arch=('x86_64')
-url="https://github.com/erikdubois/linux-kiro"
+url="https://github.com/CachyOS/linux-cachyos"
 license=('GPL-2.0-only')
 options=('!strip' '!debug' '!lto')
 makedepends=(
@@ -219,7 +190,7 @@ _nv_ver=595.58.03
 _nv_pkg="NVIDIA-Linux-x86_64-${_nv_ver}"
 _nv_open_pkg="NVIDIA-kernel-module-source-${_nv_ver}"
 source=(
-    "https://github.com/CachyOS/linux/releases/download/${_srcname}/${_srcname}.tar.gz"
+    "https://github.com/CachyOS/linux/releases/download/${_srctag}/${_srctag}.tar.gz"
     "config")
 
 # LLVM makedepends
@@ -242,41 +213,22 @@ fi
 # ZFS support
 if [ "$_build_zfs" = "yes" ]; then
     makedepends+=(git)
-    source+=("git+https://github.com/cachyos/zfs.git#commit=0829cf892b5d7b3a0e8aa76cc7aca02b84f62557")
+    source+=("git+https://github.com/cachyos/zfs.git#commit=1c702dda346a59e05cfd3029569bbb1d5d91c54b")
 fi
 
 
 if [ "$_build_nvidia_open" = "yes" ]; then
     source+=("https://download.nvidia.com/XFree86/${_nv_open_pkg%"-$_nv_ver"}/${_nv_open_pkg}.tar.xz"
-             "${_patchsource}/misc/nvidia/0002-Add-IBT-support.patch"
-             "${_patchsource}/misc/nvidia/0004-HACK-kernel-open-Makefile-Remove-PAHOLE_VARIABLE.patch"
-             "${_patchsource}/misc/nvidia/0003-fix-dsc-correct-RC-parameter-tables-to-match-VESA-DS.patch"
-             "${_patchsource}/misc/nvidia/0004-fix-dsc-use-bits_per_component-for-flatnessDetThresh.patch"
-             "${_patchsource}/misc/nvidia/0005-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch")
+             "${_patchsource}/misc/nvidia/0002-Add-IBT-support.patch")
 fi
 
 if [ "$_build_r8125" = "yes" ]; then
     source+=("git+https://github.com/aravance/r8125.git")
 fi
 
-# Use generated AutoFDO Profile
-if [ "$_autofdo" = "yes" ] && [ -n "$_autofdo_profile_name" ]; then
-    if [ -e "$_autofdo_profile_name" ]; then
-        source+=("$_autofdo_profile_name")
-    else
-        _die "Failed to find file ${_autofdo_profile_name}"
-    fi
-fi
-
-# Use generated Propeller Profile
-if [ "$_propeller" = "yes" ] && [ "$_propeller_profiles" = "yes" ]; then
-    source+=(propeller_cc_profile.txt
-             propeller_ld_profile.txt)
-fi
-
 ## List of CachyOS schedulers
 case "$_cpusched" in
-    cachyos|bore|rt-bore|hardened) # CachyOS Scheduler (BORE)
+    bore|rt-bore|hardened) # CachyOS Scheduler (BORE)
         source+=("${_patchsource}/sched/0001-bore-cachy.patch");;&
     bmq) ## Project C Scheduler
         source+=("${_patchsource}/sched/0001-prjc-cachy.patch");;
@@ -286,7 +238,7 @@ case "$_cpusched" in
         source+=("${_patchsource}/misc/0001-rt-i915.patch");;
 esac
 
-export KBUILD_BUILD_HOST=kiro
+export KBUILD_BUILD_HOST=cachyos
 export KBUILD_BUILD_USER="$pkgbase"
 export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EPOCH})"
 
@@ -406,9 +358,10 @@ prepare() {
     # We should not set up the PREEMPT for RT kernels
     if [[ "$_cpusched" != "rt" && "$_cpusched" != "rt-bore" ]]; then
         case "$_preempt" in
-            full) scripts/config -d PREEMPT_DYNAMIC -e PREEMPT -d PREEMPT_LAZY;;
-            lazy) scripts/config -d PREEMPT_DYNAMIC -d PREEMPT -e PREEMPT_LAZY;;
-            dynamic) scripts/config -e PREEMPT_DYNAMIC -e PREEMPT -d PREEMPT_LAZY;;
+            full) scripts/config -e PREEMPT_DYNAMIC -e PREEMPT -d PREEMPT_VOLUNTARY -d PREEMPT_LAZY -d PREEMPT_NONE;;
+            lazy) scripts/config -e PREEMPT_DYNAMIC -d PREEMPT -d PREEMPT_VOLUNTARY -e PREEMPT_LAZY -d PREEMPT_NONE;;
+            voluntary) scripts/config -d PREEMPT_DYNAMIC -d PREEMPT -e PREEMPT_VOLUNTARY -d PREEMPT_LAZY -d PREEMPT_NONE;;
+            none) scripts/config -d PREEMPT_DYNAMIC -d PREEMPT -d PREEMPT_VOLUNTARY -d PREEMPT_LAZY -e PREEMPT_NONE;;
             *) _die "The value '$_preempt' is invalid. Choose the correct one again.";;
         esac
 
@@ -456,25 +409,8 @@ prepare() {
 
     echo "Selecting '$_hugepage' TRANSPARENT_HUGEPAGE config..."
 
-    # Enable Clang AutoFDO
-    if [ "$_autofdo" = "yes" ]; then
-        scripts/config -e AUTOFDO_CLANG
-    fi
-
-    if [ "$_autofdo" = "yes" ] && [ -n "$_autofdo_profile_name" ]; then
-        echo "AutoFDO profile has been found..."
-        BUILD_FLAGS+=(CLANG_AUTOFDO_PROFILE="${srcdir}/${_autofdo_profile_name}")
-    fi
-
-    # Propeller Optimization
-    if [ "$_propeller" = "yes" ]; then
-        scripts/config -e PROPELLER_CLANG
-    fi
-
-    if [ "$_propeller" = "yes" ] && [ "$_propeller_profiles" = "yes" ]; then
-        echo "Propeller profile has been found..."
-        BUILD_FLAGS+=(CLANG_PROPELLER_PROFILE_PREFIX="${srcdir}/propeller")
-    fi
+    echo "Enable USER_NS_UNPRIVILEGED"
+    scripts/config -e USER_NS
 
     ### Optionally use running kernel's config
     # code originally by nous; http://aur.archlinux.org/packages.php?ID=40191
@@ -549,9 +485,6 @@ build() {
     cd "$_srcname"
     make "${BUILD_FLAGS[@]}" -j"$(nproc)" all
 
-    if ! _is_ci_build; then
-        make -C tools/bpf/bpftool vmlinux.h feature-clang-bpf-co-re=1
-    fi
 
     local MODULE_FLAGS=(
        KERNEL_UNAME="${_kernuname}"
@@ -596,10 +529,6 @@ _package() {
                 'modprobed-db: Keeps track of EVERY kernel module that has ever been probed - useful for those of us who make localmodconfig'
                 'scx-scheds: to use sched-ext schedulers')
     provides=(VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE KSMBD-MODULE V4L2LOOPBACK-MODULE NTSYNC-MODULE VHBA-MODULE ADIOS-MODULE)
-    if _is_lto_kernel; then
-        provides+=(linux-kiro-lto=$_kernver)
-        replaces=(linux-kiro-lto)
-    fi
 
     cd "$_srcname"
 
@@ -634,11 +563,6 @@ _package-headers() {
       zstd
      "${pkgbase}")
     provides=(LINUX-HEADERS)
-    if _is_lto_kernel; then
-        provides+=(linux-kiro-lto-headers=$_kernver)
-        replaces=(linux-kiro-lto-headers)
-        depends+=(clang llvm lld)
-    fi
 
     cd "${_srcname}"
     local builddir="$pkgdir/usr/lib/modules/$(<version)/build"
@@ -646,10 +570,6 @@ _package-headers() {
     echo "Installing build files..."
     install -Dt "$builddir" -m644 .config Makefile Module.symvers System.map \
         localversion.* version vmlinux
-
-    if ! _is_ci_build; then
-        install -Dt "$builddir" -m644 tools/bpf/bpftool/vmlinux.h
-    fi
 
     install -Dt "$builddir/kernel" -m644 kernel/Makefile
     install -Dt "$builddir/arch/x86" -m644 arch/x86/Makefile
@@ -819,6 +739,7 @@ for _p in "${pkgname[@]}"; do
     }"
 done
 
-b2sums=('dae09018438025ff879cdcc79376bbbb45250125dd1912b2d6185993d0a7ff44967f4f79b94d9e61ee52f9b17dcdd6359fd521245faada042d735d4bf72a8b6f'
-        '9ae1e3a55eb44b558e5d9901f8846542caadbacd92240d5d1347b121c89fec9615662352f484f52b96dbbdfc645408aba4de435b2301feddbf2a1b935ee65471'
-        '9dc1a5a46d8ecf606323926f22b4ce0aaf910dc47fd9ab9b8d08d1600e0bb45109babf7098f390562d8d8456239bb44b7db13b175fe2f529b9784a603dc11fbe')
+b2sums=('fcc2e23cd0bc55ad638216e5326b8a823f6091bde09388b9933dda6be37237ffb9193d0bdc6d2540ce7d1bfc21ccb9b4901b86543c2c4c4c3aef761b1069c645'
+        '89cf6dd9e2de286a03d0232864a9d8a6637f5addb5d37b46d93f9a42299e734d4e61891375985370925ef6ff52cc61f21df3ea7e85689cc37024851f3c6ef718'
+        'd22b4d57707bfd94469e006ee6b43f09fc3b52bf41463b8ec33d1de14d71cea7fc8b3df8d5d9db57aacf69711209bc602a7868939e553f4972e0c6753e734333'
+        '192030654eac6dd366d193f213bd3e724f412b79545b5e0a3b1b104c91ade511192d237067ecef7abeae2f11c27cfdd540a1db3ac02a9cec289c0f39a4c372f6')
