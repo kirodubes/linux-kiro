@@ -69,4 +69,4 @@ cat /sys/kernel/mm/transparent_hugepage/enabled
 
 ## Current State
 
-Kernel 7.0.1, BORE gaming preset active, modprobed enabled. Upstream: `git@github.com:kirodubes/linux-kiro`.
+PKGBUILD bumped to 7.0.5-1 (from 7.0.1-2). BORE gaming preset active, modprobed enabled. Run `./build-kernel.sh` to rebuild — `updpkgsums` will update b2sums automatically. Upstream: `git@github.com:kirodubes/linux-kiro`.

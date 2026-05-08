@@ -178,11 +178,11 @@ fi
 
 pkgbase="linux-$_pkgsuffix"
 _major=7.0
-_minor=1
+_minor=5
 #_minorc=$((_minor+1))
 #_rcver=rc8
 pkgver=${_major}.${_minor}
-_tagrel=2
+_tagrel=1
 pkgrel=1
 _srcname=cachyos-${_major}.${_minor}-${_tagrel}
 pkgdesc='Linux BORE scheduler kernel for gaming and desktop by Kiro'
@@ -819,6 +819,6 @@ for _p in "${pkgname[@]}"; do
     }"
 done
 
-b2sums=('dae09018438025ff879cdcc79376bbbb45250125dd1912b2d6185993d0a7ff44967f4f79b94d9e61ee52f9b17dcdd6359fd521245faada042d735d4bf72a8b6f'
+b2sums=('6e3de2016468abfaacb4f02968118cb9e5ef4c897c9db92a72f10a5212b3080c57fcc881127dc954fa68a09442d1941f232e61ec9593924cffd39ca0be7e726d'
         '9ae1e3a55eb44b558e5d9901f8846542caadbacd92240d5d1347b121c89fec9615662352f484f52b96dbbdfc645408aba4de435b2301feddbf2a1b935ee65471'
         '9dc1a5a46d8ecf606323926f22b4ce0aaf910dc47fd9ab9b8d08d1600e0bb45109babf7098f390562d8d8456239bb44b7db13b175fe2f529b9784a603dc11fbe')
