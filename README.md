@@ -244,6 +244,7 @@ sysctl kernel.sched_burst_cache_lifetime=30000000
 - Kernel Source: [CachyOS/linux](https://github.com/CachyOS/linux)
 - BORE Scheduler: [BORE Scheduler Repository](https://github.com/firelzrd/bore-scheduler)
 - CachyOS Patches: [CachyOS/kernel-patches](https://github.com/CachyOS/kernel-patches)
+- Claude Code Onboarding Guide: https://claude.ai/claude-code/onboard/WWvIE2tARwuU
 
 ## License
 
